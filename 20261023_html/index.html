@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101522">
+  <title>課堂抽籤機</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101522;
+      --panel: #1a2233;
+      --panel-soft: #222d42;
+      --text: #f5f7ff;
+      --muted: #aab6ca;
+      --accent: #7cdbff;
+      --accent-strong: #36b9eb;
+      --gold: #ffd76a;
+      --danger: #ff8d9b;
+      --border: #35435c;
+      font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at 50% -10%, #283858 0, transparent 50%),
+        var(--bg);
+      font-size: 17px;
+    }
+
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+
+    header { text-align: center; margin-bottom: 24px; }
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.35rem);
+      letter-spacing: .08em;
+    }
+    .subtitle { color: var(--muted); margin: 8px 0 0; font-size: 1.05rem; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, .9fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 16px 40px #0003;
+    }
+
+    .panel h2 { margin: 0 0 18px; font-size: 1.35rem; }
+    .field { margin: 0 0 18px; }
+    .field label, .field-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    input[type="number"], input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid #4b5a74;
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text);
+      background: #111a29;
+      outline: none;
+    }
+
+    input:focus, textarea:focus, button:focus-visible {
+      outline: 3px solid #7cdbff99;
+      outline-offset: 2px;
+    }
+
+    textarea { min-height: 150px; resize: vertical; line-height: 1.55; }
+    .hint { color: var(--muted); font-size: .9rem; margin: 7px 0 0; }
+    .range-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
+    .range-row span { color: var(--muted); font-weight: 700; }
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 6px;
+      margin-bottom: 20px;
+      background: #111a29;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .mode-switch button {
+      min-height: 48px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--muted);
+      background: transparent;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .mode-switch button.active { color: #10202a; background: var(--accent); }
+    .hidden { display: none !important; }
+
+    .draw-options {
+      display: grid;
+      grid-template-columns: minmax(120px, .8fr) 1fr;
+      gap: 18px;
+      align-items: end;
+    }
+
+    .count-input { max-width: 150px; }
+    .toggle-card {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #111a29;
+      cursor: pointer;
+    }
+
+    .toggle-card input { width: 22px; height: 22px; accent-color: var(--accent-strong); }
+    .remaining {
+      margin: 9px 0 0;
+      color: var(--accent);
+      font-size: .92rem;
+      font-weight: 700;
+    }
+
+    .draw-button {
+      width: 100%;
+      min-height: 72px;
+      margin-top: 4px;
+      border: 0;
+      border-radius: 15px;
+      color: #10202a;
+      background: linear-gradient(135deg, #a2ecff, #55c8f2);
+      font-size: 1.55rem;
+      font-weight: 900;
+      letter-spacing: .12em;
+      box-shadow: 0 8px 0 #2388ac;
+      cursor: pointer;
+      transition: transform .12s, filter .12s;
+    }
+
+    .draw-button:hover { filter: brightness(1.08); }
+    .draw-button:active { transform: translateY(4px); box-shadow: 0 4px 0 #2388ac; }
+    .draw-button:disabled { opacity: .65; cursor: wait; }
+
+    .status {
+      min-height: 25px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 650;
+    }
+    .status.error { color: var(--danger); }
+
+    .result-panel {
+      position: relative;
+      min-height: 300px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background:
+        radial-gradient(ellipse at center, #364466 0, #1a2233 72%);
+    }
+
+    .result-label {
+      color: var(--muted);
+      font-weight: 750;
+      letter-spacing: .15em;
+    }
+
+    .result {
+      position: relative;
+      z-index: 1;
+      max-width: 100%;
+      margin: 14px 0 5px;
+      color: var(--gold);
+      font-size: clamp(3.5rem, 10vw, 6.8rem);
+      font-weight: 950;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+      text-shadow: 0 4px 0 #8d5c16, 0 0 28px #ffd76a55;
+    }
+
+    .result.names { font-size: clamp(2.1rem, 7vw, 4.3rem); }
+    .result-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      max-width: 100%;
+      padding: 0 8px;
+    }
+
+    .result-chip {
+      padding: 7px 14px;
+      border: 1px solid #ffd76a66;
+      border-radius: 12px;
+      background: #ffd76a14;
+    }
+
+    .result.spinning { animation: wobble .12s linear infinite alternate; }
+    @keyframes wobble { from { transform: rotate(-2deg) scale(.98); } to { transform: rotate(2deg) scale(1.02); } }
+
+    .history-panel { margin-top: 20px; }
+    .history-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .history-heading h2 { margin: 0; }
+    .reset-button {
+      min-height: 42px;
+      padding: 8px 15px;
+      border: 1px solid #734653;
+      border-radius: 10px;
+      color: #ffc1c8;
+      background: #351e2b;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .history-list { display: grid; gap: 9px; }
+    .history-empty { margin: 0; padding: 18px 12px; color: var(--muted); text-align: center; }
+    .history-item {
+      display: grid;
+      grid-template-columns: 72px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      background: #111a29;
+      border: 1px solid #2e3a50;
+      border-radius: 12px;
+    }
+
+    .history-time { color: var(--muted); font-size: .84rem; }
+    .history-values { font-weight: 750; overflow-wrap: anywhere; }
+    .history-mode { color: var(--accent); font-size: .82rem; }
+    .confetti-layer { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+    .confetti {
+      position: absolute;
+      top: -14px;
+      width: 10px;
+      height: 16px;
+      border-radius: 2px;
+      animation: fall 1.8s ease-in forwards;
+    }
+    @keyframes fall {
+      to { transform: translate3d(var(--drift), 330px, 0) rotate(760deg); opacity: 0; }
+    }
+
+    @media (max-width: 780px) {
+      .app { padding: 22px 14px 36px; }
+      .layout { grid-template-columns: 1fr; }
+      .result-panel { min-height: 250px; }
+    }
+
+    @media (max-width: 460px) {
+      body { font-size: 16px; }
+      .panel { padding: 17px; border-radius: 16px; }
+      .draw-options { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .count-input { max-width: none; }
+      .history-item { grid-template-columns: 1fr auto; gap: 4px 10px; }
+      .history-time { grid-column: 1; }
+      .history-values { grid-column: 1 / -1; grid-row: 2; }
+      .history-mode { grid-column: 2; grid-row: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>課堂抽籤機</h1>
+      <p class="subtitle">準備好了嗎？看看今天的幸運兒是誰！</p>
+    </header>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="settings-title">
+        <h2 id="settings-title">抽籤設定</h2>
+        <div class="mode-switch" role="group" aria-label="抽籤模式">
+          <button type="button" id="number-mode-button" class="active" aria-pressed="true">號碼模式</button>
+          <button type="button" id="name-mode-button" aria-pressed="false">姓名模式</button>
+        </div>
+
+        <div id="number-settings">
+          <div class="field">
+            <span class="field-label">號碼範圍</span>
+            <div class="range-row">
+              <label class="hidden" for="number-start">起始號碼</label>
+              <input id="number-start" type="number" value="1" step="1" aria-label="起始號碼">
+              <span>到</span>
+              <label class="hidden" for="number-end">結束號碼</label>
+              <input id="number-end" type="number" value="30" step="1" aria-label="結束號碼">
+            </div>
+            <p class="hint">起訖號碼都會包含在抽籤範圍內。</p>
+          </div>
+          <div class="field">
+            <label for="number-exclusions">排除號碼</label>
+            <input id="number-exclusions" type="text" placeholder="例如：5, 12">
+            <p class="hint">用逗號或空白分隔；範圍外的號碼會忽略。</p>
+          </div>
+        </div>
+
+        <div id="name-settings" class="hidden">
+          <div class="field">
+            <label for="name-list">學生名單</label>
+            <textarea id="name-list" placeholder="每行輸入一位學生姓名"></textarea>
+            <p class="hint">名單會自動儲存在這台裝置的瀏覽器中。</p>
+          </div>
+          <div class="field">
+            <label for="name-exclusions">排除姓名</label>
+            <textarea id="name-exclusions" rows="2" placeholder="例如：王小明, 李小華"></textarea>
+            <p class="hint">以逗號或換行分隔，符合的姓名都會排除。</p>
+          </div>
+        </div>
+
+        <div class="draw-options">
+          <div class="field">
+            <label for="draw-count">抽出人數</label>
+            <input class="count-input" id="draw-count" type="number" min="1" step="1" value="1">
+          </div>
+          <div class="field">
+            <label class="toggle-card" for="no-repeat">
+              <input id="no-repeat" type="checkbox">
+              <span>不重複抽籤</span>
+            </label>
+            <p id="remaining-count" class="remaining" aria-live="polite"></p>
+          </div>
+        </div>
+        <button id="draw-button" class="draw-button" type="button">開始抽籤</button>
+        <p id="status-message" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel result-panel" aria-labelledby="result-heading">
+        <div id="confetti-layer" class="confetti-layer" aria-hidden="true"></div>
+        <span id="result-heading" class="result-label">幸運得主</span>
+        <div id="result" class="result" aria-live="polite">？</div>
+        <p id="result-caption" class="hint">結果會顯示在這裡</p>
+      </section>
+    </div>
+
+    <section class="panel history-panel" aria-labelledby="history-title">
+      <div class="history-heading">
+        <h2 id="history-title">抽籤紀錄</h2>
+        <button id="reset-button" class="reset-button" type="button">一鍵重置</button>
+      </div>
+      <div id="history-list" class="history-list">
+        <p class="history-empty">還沒有抽籤紀錄</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEYS = {
+        names: "classLottery.names",
+        history: "classLottery.history",
+        drawn: "classLottery.drawn"
+      };
+      const numberModeButton = document.getElementById("number-mode-button");
+      const nameModeButton = document.getElementById("name-mode-button");
+      const numberSettings = document.getElementById("number-settings");
+      const nameSettings = document.getElementById("name-settings");
+      const numberStart = document.getElementById("number-start");
+      const numberEnd = document.getElementById("number-end");
+      const numberExclusions = document.getElementById("number-exclusions");
+      const nameList = document.getElementById("name-list");
+      const nameExclusions = document.getElementById("name-exclusions");
+      const drawCount = document.getElementById("draw-count");
+      const noRepeat = document.getElementById("no-repeat");
+      const remainingCount = document.getElementById("remaining-count");
+      const drawButton = document.getElementById("draw-button");
+      const statusMessage = document.getElementById("status-message");
+      const resultElement = document.getElementById("result");
+      const resultCaption = document.getElementById("result-caption");
+      const historyList = document.getElementById("history-list");
+      const confettiLayer = document.getElementById("confetti-layer");
+
+      let mode = "number";
+      let isDrawing = false;
+      let drawnIds = loadJson(STORAGE_KEYS.drawn, []);
+      let history = loadJson(STORAGE_KEYS.history, []);
+
+      if (!Array.isArray(drawnIds)) drawnIds = [];
+      if (!Array.isArray(history)) history = [];
+      nameList.value = localStorage.getItem(STORAGE_KEYS.names) || "";
+      renderHistory();
+      refreshRemaining();
+
+      function loadJson(key, fallback) {
+        const stored = localStorage.getItem(key);
+        if (!stored) return fallback;
+        try {
+          return JSON.parse(stored);
+        } catch (error) {
+          console.error(`無法讀取儲存資料「${key}」：`, error);
+          return fallback;
+        }
+      }
+
+      function saveJson(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+          console.error(`無法儲存資料「${key}」：`, error);
+          setStatus("瀏覽器無法儲存資料，請確認儲存空間或瀏覽器設定。", true);
+        }
+      }
+
+      function setStatus(message, isError) {
+        statusMessage.textContent = message;
+        statusMessage.classList.toggle("error", Boolean(isError));
+      }
+
+      function getExcludedValues(input, isNumber) {
+        const tokens = input.split(isNumber ? /[,\s，、;；]+/ : /[,，、;；\n\r]+/)
+          .map((token) => token.trim())
+          .filter(Boolean);
+        if (!isNumber) return new Set(tokens);
+        const values = new Set();
+        for (const token of tokens) {
+          const value = Number(token);
+          if (Number.isInteger(value)) values.add(value);
+        }
+        return values;
+      }
+
+      function getEntries() {
+        if (mode === "number") {
+          const start = Number(numberStart.value);
+          const end = Number(numberEnd.value);
+          if (numberStart.value.trim() === "" || numberEnd.value.trim() === "" ||
+              !Number.isSafeInteger(start) || !Number.isSafeInteger(end)) {
+            return { error: "請輸入有效的整數起訖號碼。" };
+          }
+          if (end < start) return { error: "結束號碼不可小於起始號碼。" };
+          if (end - start > 99999) return { error: "號碼範圍最多可設定 100,000 個號碼。" };
+          const excluded = getExcludedValues(numberExclusions.value, true);
+          const entries = [];
+          for (let value = start; value <= end; value += 1) {
+            if (!excluded.has(value)) entries.push({ id: `number:${value}`, value: String(value) });
+          }
+          return { entries };
+        }
+
+        const names = nameList.value.split(/\r?\n/).map((name) => name.trim()).filter(Boolean);
+        const excluded = getExcludedValues(nameExclusions.value, false);
+        const entries = names
+          .map((name, index) => ({ id: `name:${index}:${name}`, value: name }))
+          .filter((entry) => !excluded.has(entry.value));
+        return { entries };
+      }
+
+      function refreshRemaining() {
+        const result = getEntries();
+        if (result.error) {
+          remainingCount.textContent = noRepeat.checked ? "請先修正抽籤範圍" : "";
+          return;
+        }
+        const available = noRepeat.checked
+          ? result.entries.filter((entry) => !drawnIds.includes(entry.id)).length
+          : result.entries.length;
+        remainingCount.textContent = noRepeat.checked ? `剩餘可抽：${available} 人` : "";
+      }
+
+      function setMode(nextMode) {
+        mode = nextMode;
+        const isNumber = mode === "number";
+        numberSettings.classList.toggle("hidden", !isNumber);
+        nameSettings.classList.toggle("hidden", isNumber);
+        numberModeButton.classList.toggle("active", isNumber);
+        nameModeButton.classList.toggle("active", !isNumber);
+        numberModeButton.setAttribute("aria-pressed", String(isNumber));
+        nameModeButton.setAttribute("aria-pressed", String(!isNumber));
+        setStatus("", false);
+        refreshRemaining();
+      }
+
+      function chooseRandom(entries, count) {
+        const pool = entries.slice();
+        const chosen = [];
+        for (let index = 0; index < count; index += 1) {
+          const randomIndex = Math.floor(Math.random() * pool.length);
+          chosen.push(pool.splice(randomIndex, 1)[0]);
+        }
+        return chosen;
+      }
+
+      function renderResult(values, spinning) {
+        resultElement.classList.toggle("spinning", spinning);
+        resultElement.classList.toggle("names", mode === "name");
+        resultElement.replaceChildren();
+        if (spinning || values.length === 1) {
+          resultElement.textContent = values[0] || "？";
+          return;
+        }
+        const list = document.createElement("div");
+        list.className = "result-list";
+        for (const value of values) {
+          const chip = document.createElement("span");
+          chip.className = "result-chip";
+          chip.textContent = value;
+          list.append(chip);
+        }
+        resultElement.append(list);
+      }
+
+      function playCelebrationSound() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          setStatus("抽籤完成；此瀏覽器不支援音效播放。", false);
+          return;
+        }
+        let audio;
+        try {
+          audio = new AudioContextClass();
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((frequency, index) => {
+            const oscillator = audio.createOscillator();
+            const gain = audio.createGain();
+            const startAt = audio.currentTime + index * 0.11;
+            oscillator.type = "sine";
+            oscillator.frequency.value = frequency;
+            gain.gain.setValueAtTime(0.0001, startAt);
+            gain.gain.exponentialRampToValueAtTime(0.18, startAt + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.34);
+            oscillator.connect(gain);
+            gain.connect(audio.destination);
+            oscillator.start(startAt);
+            oscillator.stop(startAt + 0.36);
+          });
+          window.setTimeout(() => audio.close(), 900);
+        } catch (error) {
+          console.error("無法播放抽籤音效：", error);
+          if (audio) audio.close();
+          setStatus("抽籤完成；音效無法播放，但抽籤結果已保留。", false);
+        }
+      }
+
+      function launchConfetti() {
+        const colors = ["#ffd76a", "#7cdbff", "#ff7892", "#9bf2b5", "#c59bff", "#ff9e57"];
+        confettiLayer.replaceChildren();
+        for (let index = 0; index < 75; index += 1) {
+          const piece = document.createElement("span");
+          piece.className = "confetti";
+          piece.style.left = `${Math.random() * 100}%`;
+          piece.style.backgroundColor = colors[index % colors.length];
+          piece.style.animationDelay = `${Math.random() * 0.45}s`;
+          piece.style.setProperty("--drift", `${Math.round(Math.random() * 180 - 90)}px`);
+          confettiLayer.append(piece);
+        }
+        window.setTimeout(() => confettiLayer.replaceChildren(), 2500);
+      }
+
+      function recordDraw(entries) {
+        const item = {
+          mode,
+          values: entries.map((entry) => entry.value),
+          time: new Date().toISOString()
+        };
+        history.unshift(item);
+        history = history.slice(0, 100);
+        saveJson(STORAGE_KEYS.history, history);
+        renderHistory();
+      }
+
+      function renderHistory() {
+        historyList.replaceChildren();
+        if (!history.length) {
+          const empty = document.createElement("p");
+          empty.className = "history-empty";
+          empty.textContent = "還沒有抽籤紀錄";
+          historyList.append(empty);
+          return;
+        }
+        for (const item of history) {
+          const row = document.createElement("div");
+          row.className = "history-item";
+          const time = document.createElement("time");
+          time.className = "history-time";
+          const date = new Date(item.time);
+          time.dateTime = item.time;
+          time.textContent = Number.isNaN(date.getTime())
+            ? ""
+            : date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
+          const values = document.createElement("div");
+          values.className = "history-values";
+          values.textContent = Array.isArray(item.values) ? item.values.join("、") : "";
+          const modeLabel = document.createElement("span");
+          modeLabel.className = "history-mode";
+          modeLabel.textContent = item.mode === "name" ? "姓名" : "號碼";
+          row.append(time, values, modeLabel);
+          historyList.append(row);
+        }
+      }
+
+      async function draw() {
+        if (isDrawing) return;
+        const count = Number(drawCount.value);
+        if (drawCount.value.trim() === "" || !Number.isSafeInteger(count) || count < 1) {
+          setStatus("抽出人數請輸入大於 0 的整數。", true);
+          return;
+        }
+        const result = getEntries();
+        if (result.error) {
+          setStatus(result.error, true);
+          return;
+        }
+        const entries = noRepeat.checked
+          ? result.entries.filter((entry) => !drawnIds.includes(entry.id))
+          : result.entries;
+        if (entries.length === 0) {
+          setStatus("目前沒有可抽的人，請檢查範圍、名單或排除項目。", true);
+          refreshRemaining();
+          return;
+        }
+        if (count > entries.length) {
+          setStatus(`可抽人數不足：目前只有 ${entries.length} 人，無法抽出 ${count} 人。`, true);
+          return;
+        }
+
+        isDrawing = true;
+        drawButton.disabled = true;
+        setStatus("抽籤中，請稍候……", false);
+        resultCaption.textContent = "幸運兒即將揭曉";
+        const finalEntries = chooseRandom(entries, count);
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 2000) {
+          const preview = chooseRandom(entries, 1)[0];
+          renderResult([preview.value], true);
+          await new Promise((resolve) => window.setTimeout(resolve, 75));
+        }
+
+        renderResult(finalEntries.map((entry) => entry.value), false);
+        resultCaption.textContent = `本次抽出 ${count} 位`;
+        if (noRepeat.checked) {
+          drawnIds = [...new Set([...drawnIds, ...finalEntries.map((entry) => entry.id)])];
+          saveJson(STORAGE_KEYS.drawn, drawnIds);
+        }
+        recordDraw(finalEntries);
+        launchConfetti();
+        playCelebrationSound();
+        if (statusMessage.textContent === "抽籤中，請稍候……") setStatus("抽籤完成！", false);
+        refreshRemaining();
+        isDrawing = false;
+        drawButton.disabled = false;
+      }
+
+      numberModeButton.addEventListener("click", () => setMode("number"));
+      nameModeButton.addEventListener("click", () => setMode("name"));
+      drawButton.addEventListener("click", draw);
+      for (const input of [numberStart, numberEnd, numberExclusions, nameExclusions, noRepeat]) {
+        input.addEventListener("input", refreshRemaining);
+        input.addEventListener("change", refreshRemaining);
+      }
+      nameList.addEventListener("input", () => {
+        localStorage.setItem(STORAGE_KEYS.names, nameList.value);
+        refreshRemaining();
+      });
+
+      document.getElementById("reset-button").addEventListener("click", () => {
+        if (isDrawing) return;
+        history = [];
+        drawnIds = [];
+        saveJson(STORAGE_KEYS.history, history);
+        saveJson(STORAGE_KEYS.drawn, drawnIds);
+        renderHistory();
+        renderResult([], false);
+        resultCaption.textContent = "結果會顯示在這裡";
+        setStatus("抽籤紀錄與不重複抽籤進度已重置。", false);
+        refreshRemaining();
+      });
+    })();
+  </script>
+</body>
+</html>
